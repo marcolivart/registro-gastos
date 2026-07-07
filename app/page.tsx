@@ -1,18 +1,89 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-const gastos = [
-  { nombre: "Mercadona", categoria: "Compra", importe: 42.35, pagado: "Conjunta", icono: "🛒" },
-  { nombre: "Factura luz", categoria: "Luz", importe: 54.2, pagado: "Marc", icono: "⚡" },
-  { nombre: "Internet", categoria: "Internet", importe: 29.9, pagado: "Alba", icono: "📶" },
-];
+type Gasto = {
+  id: string;
+  fecha: string;
+  importe: number;
+  categoria: string;
+  descripcion: string;
+  pagado_por: string;
+};
 
 export default function Home() {
+  const [gastos, setGastos] = useState<Gasto[]>([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const total = gastos.reduce((acc, g) => acc + g.importe, 0);
+  const [form, setForm] = useState({
+    importe: "",
+    categoria: "Compra",
+    pagado_por: "Conjunta",
+    descripcion: "",
+    fecha: new Date().toISOString().slice(0, 10),
+  });
+
   const presupuesto = 1200;
+
+  async function cargarGastos() {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("gastos")
+      .select("*")
+      .order("fecha", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert("Error cargando gastos");
+    } else {
+      setGastos(data || []);
+    }
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    cargarGastos();
+  }, []);
+
+  async function guardarGasto() {
+    const importe = Number(form.importe.replace(",", "."));
+
+    if (!importe || importe <= 0) {
+      alert("Pon un importe válido");
+      return;
+    }
+
+    const { error } = await supabase.from("gastos").insert({
+      fecha: form.fecha,
+      importe,
+      categoria: form.categoria,
+      descripcion: form.descripcion || "Sin descripción",
+      pagado_por: form.pagado_por,
+    });
+
+    if (error) {
+      console.error(error);
+      alert("Error guardando gasto");
+      return;
+    }
+
+    setOpen(false);
+    setForm({
+      importe: "",
+      categoria: "Compra",
+      pagado_por: "Conjunta",
+      descripcion: "",
+      fecha: new Date().toISOString().slice(0, 10),
+    });
+
+    cargarGastos();
+  }
+
+  const total = gastos.reduce((acc, g) => acc + Number(g.importe), 0);
   const restante = presupuesto - total;
   const porcentaje = Math.min((total / presupuesto) * 100, 100);
 
@@ -32,11 +103,9 @@ export default function Home() {
         <section className="mb-5 rounded-[36px] bg-white p-6 text-[#071018] shadow-2xl shadow-emerald-500/20">
           <p className="text-sm font-black text-slate-500">Gastado este mes</p>
 
-          <div className="mt-3 flex items-end justify-between">
-            <h2 className="text-5xl font-black tracking-tight">
-              {total.toFixed(2).replace(".", ",")} €
-            </h2>
-          </div>
+          <h2 className="mt-3 text-5xl font-black tracking-tight">
+            {total.toFixed(2).replace(".", ",")} €
+          </h2>
 
           <div className="mt-6">
             <div className="mb-2 flex justify-between text-sm font-black">
@@ -60,47 +129,36 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-[32px] border border-white/10 bg-white/[0.06] p-4">
-          <p className="mb-4 text-sm font-bold text-slate-400">Resumen rápido</p>
-
-          <div className="grid grid-cols-3 gap-3">
-            <MiniCard icono="⚡" titulo="Luz" valor="54,20 €" detalle="+6 €" />
-            <MiniCard icono="💧" titulo="Agua" valor="0 €" detalle="Sin datos" />
-            <MiniCard icono="🛒" titulo="Compra" valor="42,35 €" detalle="-18 €" />
-          </div>
-        </section>
-
         <section className="mb-8 rounded-[32px] border border-emerald-400/20 bg-emerald-400/10 p-5">
           <p className="text-sm font-black text-emerald-300">Insight del mes</p>
-          <h3 className="mt-2 text-xl font-black">Este mes vais por buen camino.</h3>
+          <h3 className="mt-2 text-xl font-black">
+            {loading ? "Cargando datos..." : "Este mes vais por buen camino."}
+          </h3>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
-            Habéis usado solo el {porcentaje.toFixed(0)}% del presupuesto mensual.
-            Si seguís así, cerraréis el mes por debajo del objetivo.
+            Habéis usado el {porcentaje.toFixed(0)}% del presupuesto mensual.
           </p>
         </section>
 
         <section>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-xl font-black">Últimos movimientos</h3>
-            <button className="text-sm font-bold text-emerald-300">Ver todo</button>
           </div>
 
           <div className="space-y-3">
-            {gastos.map((gasto, index) => (
-              <div key={index} className="movement">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 text-xl">
-                    {gasto.icono}
-                  </div>
-                  <div>
-                    <p className="font-black">{gasto.nombre}</p>
-                    <p className="text-sm text-slate-400">
-                      {gasto.categoria} · {gasto.pagado}
-                    </p>
-                  </div>
+            {gastos.length === 0 && !loading && (
+              <p className="text-slate-400">Todavía no hay gastos guardados.</p>
+            )}
+
+            {gastos.map((gasto) => (
+              <div key={gasto.id} className="movement">
+                <div>
+                  <p className="font-black">{gasto.descripcion}</p>
+                  <p className="text-sm text-slate-400">
+                    {gasto.categoria} · {gasto.pagado_por}
+                  </p>
                 </div>
 
-                <strong>{gasto.importe.toFixed(2).replace(".", ",")} €</strong>
+                <strong>{Number(gasto.importe).toFixed(2).replace(".", ",")} €</strong>
               </div>
             ))}
           </div>
@@ -124,8 +182,18 @@ export default function Home() {
                 <button onClick={() => setOpen(false)} className="text-2xl">✕</button>
               </div>
 
-              <input className="input" placeholder="Importe, ej: 32,50" />
-              <select className="input">
+              <input
+                className="input"
+                placeholder="Importe, ej: 32,50"
+                value={form.importe}
+                onChange={(e) => setForm({ ...form, importe: e.target.value })}
+              />
+
+              <select
+                className="input"
+                value={form.categoria}
+                onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+              >
                 <option>Compra</option>
                 <option>Alquiler</option>
                 <option>Luz</option>
@@ -134,15 +202,35 @@ export default function Home() {
                 <option>Ocio</option>
                 <option>Otros</option>
               </select>
-              <select className="input">
+
+              <select
+                className="input"
+                value={form.pagado_por}
+                onChange={(e) => setForm({ ...form, pagado_por: e.target.value })}
+              >
                 <option>Conjunta</option>
                 <option>Marc</option>
                 <option>Alba</option>
               </select>
-              <input className="input" placeholder="Descripción, ej: Mercadona" />
-              <input className="input" type="date" />
 
-              <button className="mt-3 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c]">
+              <input
+                className="input"
+                placeholder="Descripción, ej: Mercadona"
+                value={form.descripcion}
+                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+              />
+
+              <input
+                className="input"
+                type="date"
+                value={form.fecha}
+                onChange={(e) => setForm({ ...form, fecha: e.target.value })}
+              />
+
+              <button
+                onClick={guardarGasto}
+                className="mt-3 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c]"
+              >
                 Guardar gasto
               </button>
             </div>
@@ -150,26 +238,5 @@ export default function Home() {
         )}
       </div>
     </main>
-  );
-}
-
-function MiniCard({
-  icono,
-  titulo,
-  valor,
-  detalle,
-}: {
-  icono: string;
-  titulo: string;
-  valor: string;
-  detalle: string;
-}) {
-  return (
-    <div className="rounded-[24px] bg-white/10 p-3">
-      <p className="text-lg">{icono}</p>
-      <p className="mt-2 text-xs font-bold text-slate-400">{titulo}</p>
-      <p className="mt-1 text-sm font-black">{valor}</p>
-      <p className="mt-1 text-xs text-emerald-300">{detalle}</p>
-    </div>
   );
 }
