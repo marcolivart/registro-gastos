@@ -15,6 +15,7 @@ type Gasto = {
 export default function Home() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Gasto | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
@@ -49,6 +50,30 @@ export default function Home() {
     cargarGastos();
   }, []);
 
+  function abrirNuevoGasto() {
+    setEditing(null);
+    setForm({
+      importe: "",
+      categoria: "Compra",
+      pagado_por: "Conjunta",
+      descripcion: "",
+      fecha: new Date().toISOString().slice(0, 10),
+    });
+    setOpen(true);
+  }
+
+  function abrirEditarGasto(gasto: Gasto) {
+    setEditing(gasto);
+    setForm({
+      importe: String(gasto.importe).replace(".", ","),
+      categoria: gasto.categoria,
+      pagado_por: gasto.pagado_por,
+      descripcion: gasto.descripcion,
+      fecha: gasto.fecha,
+    });
+    setOpen(true);
+  }
+
   async function guardarGasto() {
     const importe = Number(form.importe.replace(",", "."));
 
@@ -72,15 +97,61 @@ export default function Home() {
     }
 
     setOpen(false);
-    setForm({
-      importe: "",
-      categoria: "Compra",
-      pagado_por: "Conjunta",
-      descripcion: "",
-      fecha: new Date().toISOString().slice(0, 10),
-    });
+    await cargarGastos();
+  }
 
-    cargarGastos();
+  async function actualizarGasto() {
+    if (!editing) return;
+
+    const importe = Number(form.importe.replace(",", "."));
+
+    if (!importe || importe <= 0) {
+      alert("Pon un importe válido");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("gastos")
+      .update({
+        fecha: form.fecha,
+        importe,
+        categoria: form.categoria,
+        descripcion: form.descripcion || "Sin descripción",
+        pagado_por: form.pagado_por,
+      })
+      .eq("id", editing.id);
+
+    if (error) {
+      console.error(error);
+      alert("Error actualizando gasto");
+      return;
+    }
+
+    setEditing(null);
+    setOpen(false);
+    await cargarGastos();
+  }
+
+  async function eliminarGasto() {
+    if (!editing) return;
+
+    const confirmar = confirm("¿Seguro que quieres eliminar este gasto?");
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("gastos")
+      .delete()
+      .eq("id", editing.id);
+
+    if (error) {
+      console.error(error);
+      alert("Error eliminando gasto");
+      return;
+    }
+
+    setEditing(null);
+    setOpen(false);
+    await cargarGastos();
   }
 
   const total = gastos.reduce((acc, g) => acc + Number(g.importe), 0);
@@ -95,8 +166,12 @@ export default function Home() {
             🏠
           </div>
           <div>
-            <h1 className="text-2xl font-black leading-tight">Registro de Gastos</h1>
-            <p className="text-sm font-semibold text-emerald-300">Marc & Alba</p>
+            <h1 className="text-2xl font-black leading-tight">
+              Registro de Gastos
+            </h1>
+            <p className="text-sm font-semibold text-emerald-300">
+              Marc & Alba
+            </p>
           </div>
         </header>
 
@@ -122,7 +197,9 @@ export default function Home() {
           </div>
 
           <div className="mt-6 rounded-[24px] bg-emerald-50 p-4">
-            <p className="text-sm font-black text-emerald-700">Vais genial 💚</p>
+            <p className="text-sm font-black text-emerald-700">
+              Vais genial 💚
+            </p>
             <p className="mt-1 text-2xl font-black">
               {restante.toFixed(2).replace(".", ",")} € disponibles
             </p>
@@ -142,6 +219,9 @@ export default function Home() {
         <section>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-xl font-black">Últimos movimientos</h3>
+            <p className="text-xs font-bold text-slate-400">
+              Pulsa para editar
+            </p>
           </div>
 
           <div className="space-y-3">
@@ -150,7 +230,11 @@ export default function Home() {
             )}
 
             {gastos.map((gasto) => (
-              <div key={gasto.id} className="movement">
+              <button
+                key={gasto.id}
+                onClick={() => abrirEditarGasto(gasto)}
+                className="movement w-full cursor-pointer text-left transition active:scale-[0.98]"
+              >
                 <div>
                   <p className="font-black">{gasto.descripcion}</p>
                   <p className="text-sm text-slate-400">
@@ -158,15 +242,17 @@ export default function Home() {
                   </p>
                 </div>
 
-                <strong>{Number(gasto.importe).toFixed(2).replace(".", ",")} €</strong>
-              </div>
+                <strong>
+                  {Number(gasto.importe).toFixed(2).replace(".", ",")} €
+                </strong>
+              </button>
             ))}
           </div>
         </section>
 
         <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 left-1/2 grid h-20 w-20 -translate-x-1/2 place-items-center rounded-[30px] bg-emerald-400 text-5xl text-[#06110c] shadow-2xl shadow-emerald-500/40 transition active:scale-90"
+          onClick={abrirNuevoGasto}
+          className="fixed bottom-6 left-1/2 z-40 grid h-20 w-20 -translate-x-1/2 place-items-center rounded-[30px] bg-emerald-400 text-5xl text-[#06110c] shadow-2xl shadow-emerald-500/40 transition active:scale-90"
         >
           +
         </button>
@@ -176,10 +262,22 @@ export default function Home() {
             <div className="w-full max-w-[430px] animate-slideUp rounded-[36px] bg-[#101923] p-5 shadow-2xl">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-emerald-300">Nuevo movimiento</p>
-                  <h2 className="text-2xl font-black">Añadir gasto</h2>
+                  <p className="text-sm font-bold text-emerald-300">
+                    {editing ? "Modificar movimiento" : "Nuevo movimiento"}
+                  </p>
+                  <h2 className="text-2xl font-black">
+                    {editing ? "Editar gasto" : "Añadir gasto"}
+                  </h2>
                 </div>
-                <button onClick={() => setOpen(false)} className="text-2xl">✕</button>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    setEditing(null);
+                  }}
+                  className="text-2xl"
+                >
+                  ✕
+                </button>
               </div>
 
               <input
@@ -192,7 +290,9 @@ export default function Home() {
               <select
                 className="input"
                 value={form.categoria}
-                onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, categoria: e.target.value })
+                }
               >
                 <option>Compra</option>
                 <option>Alquiler</option>
@@ -200,13 +300,18 @@ export default function Home() {
                 <option>Agua</option>
                 <option>Internet</option>
                 <option>Ocio</option>
+                <option>Transporte</option>
+                <option>Limpieza</option>
+                <option>Hogar</option>
                 <option>Otros</option>
               </select>
 
               <select
                 className="input"
                 value={form.pagado_por}
-                onChange={(e) => setForm({ ...form, pagado_por: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, pagado_por: e.target.value })
+                }
               >
                 <option>Conjunta</option>
                 <option>Marc</option>
@@ -217,7 +322,9 @@ export default function Home() {
                 className="input"
                 placeholder="Descripción, ej: Mercadona"
                 value={form.descripcion}
-                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, descripcion: e.target.value })
+                }
               />
 
               <input
@@ -228,11 +335,20 @@ export default function Home() {
               />
 
               <button
-                onClick={guardarGasto}
+                onClick={editing ? actualizarGasto : guardarGasto}
                 className="mt-3 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c]"
               >
-                Guardar gasto
+                {editing ? "Guardar cambios" : "Guardar gasto"}
               </button>
+
+              {editing && (
+                <button
+                  onClick={eliminarGasto}
+                  className="mt-3 h-14 w-full rounded-2xl bg-red-500 font-black text-white"
+                >
+                  Eliminar gasto
+                </button>
+              )}
             </div>
           </div>
         )}
