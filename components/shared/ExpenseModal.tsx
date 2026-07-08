@@ -62,8 +62,8 @@ export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-[430px] animate-slideUp rounded-[36px] bg-[#101923] p-5 shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-[430px] max-h-[85vh] overflow-y-auto rounded-[36px] bg-[#101923] p-5 pb-28 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-emerald-300">
