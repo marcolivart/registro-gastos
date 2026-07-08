@@ -1,5 +1,5 @@
-import { ArrowDownRight, PiggyBank, Wallet } from "lucide-react";
-import { euro, FONDO_COMUN, APORTACION_POR_PERSONA } from "@/lib/helpers";
+import { Home, Wallet } from "lucide-react";
+import { euro, FONDO_COMUN } from "@/lib/helpers";
 
 type Props = {
   total: number;
@@ -12,27 +12,26 @@ export function DashboardHero({ total, disponible, porcentaje }: Props) {
     <section className="mb-5 overflow-hidden rounded-[42px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#06110c] shadow-2xl shadow-emerald-500/25">
       <div className="flex items-start justify-between">
         <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Home size={20} strokeWidth={3} />
+            <p className="text-sm font-black opacity-70">Casa Marc & Alba</p>
+          </div>
+
           <p className="text-sm font-black opacity-70">Fondo común</p>
+
           <h2 className="mt-2 text-5xl font-black tracking-tight">
             {euro(FONDO_COMUN)}
           </h2>
         </div>
 
         <div className="grid h-13 w-13 place-items-center rounded-[22px] bg-[#06110c]/10">
-          <PiggyBank size={28} strokeWidth={3} />
+          <Wallet size={28} strokeWidth={3} />
         </div>
       </div>
 
-      <p className="mt-3 text-sm font-black opacity-70">
-        {euro(APORTACION_POR_PERSONA)} Marc + {euro(APORTACION_POR_PERSONA)} Alba
-      </p>
-
       <div className="mt-7 rounded-[30px] bg-white/35 p-4 backdrop-blur">
         <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wallet size={18} strokeWidth={3} />
-            <span className="text-sm font-black">Gastado</span>
-          </div>
+          <span className="text-sm font-black">Gastado</span>
           <span className="text-sm font-black">{euro(total)}</span>
         </div>
 
@@ -43,21 +42,15 @@ export function DashboardHero({ total, disponible, porcentaje }: Props) {
           />
         </div>
 
-        <div className="mt-5 flex items-end justify-between">
-          <div>
-            <p className="text-sm font-black opacity-70">
-              {disponible >= 0 ? "Disponible" : "Fondo superado"}
-            </p>
-            <p className="text-3xl font-black">
-              {disponible >= 0
-                ? euro(disponible)
-                : `${euro(Math.abs(disponible))} extra`}
-            </p>
-          </div>
-
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#06110c] text-emerald-300">
-            <ArrowDownRight size={22} strokeWidth={3} />
-          </div>
+        <div className="mt-5">
+          <p className="text-sm font-black opacity-70">
+            {disponible >= 0 ? "Disponible" : "Fondo superado"}
+          </p>
+          <p className="text-3xl font-black">
+            {disponible >= 0
+              ? euro(disponible)
+              : `${euro(Math.abs(disponible))} extra`}
+          </p>
         </div>
       </div>
     </section>

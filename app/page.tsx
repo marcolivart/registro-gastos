@@ -48,20 +48,6 @@ export default function Home() {
 
         <MonthSelector mesActivo={mesActivo} onChange={cambiarMes} />
 
-        <section className="mb-5 flex items-center justify-between rounded-[26px] border border-white/10 bg-white/[0.06] p-4">
-          <div>
-            <p className="text-xs font-bold text-slate-400">Acción rápida</p>
-            <p className="text-lg font-black">Añadir nuevo gasto</p>
-          </div>
-
-          <Link
-            href="/gastos"
-            className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-black text-emerald-300 active:scale-95"
-          >
-            Añadir
-          </Link>
-        </section>
-
         {loading ? (
           <section className="mb-5 rounded-[40px] bg-white/10 p-6">
             <p className="text-slate-400">Cargando datos...</p>
