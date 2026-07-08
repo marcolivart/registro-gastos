@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { ExpenseModal } from "@/components/shared/ExpenseModal";
+import { MonthSelector } from "@/components/shared/MonthSelector";
 import { useExpenses } from "@/hooks/useExpenses";
 import { euro, filtrarPorMes, iconoCategoria } from "@/lib/helpers";
 import { Gasto } from "@/types/expense";
@@ -14,8 +15,15 @@ export default function GastosPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Gasto | null>(null);
+  const [mesActivo, setMesActivo] = useState(new Date());
 
-  const gastosMes = filtrarPorMes(gastos, new Date());
+  function cambiarMes(offset: number) {
+    const nuevoMes = new Date(mesActivo);
+    nuevoMes.setMonth(nuevoMes.getMonth() + offset);
+    setMesActivo(nuevoMes);
+  }
+
+  const gastosMes = filtrarPorMes(gastos, mesActivo);
 
   async function guardar(gasto: Omit<Gasto, "id">) {
     if (editing) {
@@ -44,13 +52,15 @@ export default function GastosPage() {
         <section className="mb-5">
           <h2 className="text-3xl font-black">Gastos</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Pulsa un gasto para editarlo.
+            Cambia de mes y pulsa un gasto para editarlo.
           </p>
         </section>
 
+        <MonthSelector mesActivo={mesActivo} onChange={cambiarMes} />
+
         <div className="space-y-3">
           {gastosMes.length === 0 && !loading && (
-            <p className="text-slate-400">No hay gastos este mes.</p>
+            <p className="text-slate-400">No hay gastos en este mes.</p>
           )}
 
           {gastosMes.map((gasto) => (

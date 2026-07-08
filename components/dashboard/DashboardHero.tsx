@@ -14,7 +14,7 @@ export function DashboardHero({ total, disponible, porcentaje }: Props) {
         <div>
           <div className="mb-3 flex items-center gap-2">
             <Home size={20} strokeWidth={3} />
-            <p className="text-sm font-black opacity-70">Casa Marc & Alba</p>
+            <p className="text-sm font-black opacity-70">Nuestro Piso</p>
           </div>
 
           <p className="text-sm font-black opacity-70">Fondo común</p>
