@@ -1,5 +1,5 @@
 import { Home, Wallet } from "lucide-react";
-import { euro, FONDO_COMUN } from "@/lib/helpers";
+import { euro, FONDO_MENSUAL } from "@/lib/helpers";
 
 type Props = {
   total: number;
@@ -17,10 +17,10 @@ export function DashboardHero({ total, disponible, porcentaje }: Props) {
             <p className="text-sm font-black opacity-70">Nuestro Piso</p>
           </div>
 
-          <p className="text-sm font-black opacity-70">Fondo común</p>
+          <p className="text-sm font-black opacity-70">Fondo mensual</p>
 
           <h2 className="mt-2 text-5xl font-black tracking-tight">
-            {euro(FONDO_COMUN)}
+            {euro(FONDO_MENSUAL)}
           </h2>
         </div>
 
