@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
 function limpiarValor(valor: unknown) {
   return String(valor || "")
-    .replace(/[🟢🔴🛒⚡💧🌐🏠🚗🎮🧹🛋️📦👨👩🏡]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
     .trim()
     .toLowerCase();
 }
