@@ -8,17 +8,19 @@ import { MonthSelector } from "@/components/shared/MonthSelector";
 import { AppShell } from "@/components/ui/AppShell";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useMovimientos } from "@/hooks/useMovimientos";
 import {
   FONDO_MENSUAL,
-  calcularFondoAcumulado,
+  calcularSaldoHastaMes,
   euro,
   filtrarPorMes,
   iconoCategoria,
+  totalGastos,
+  totalIngresos,
 } from "@/lib/helpers";
 
 export default function Home() {
-  const { gastos, loading } = useExpenses();
+  const { movimientos, loading } = useMovimientos();
   const [mesActivo, setMesActivo] = useState(new Date());
 
   function cambiarMes(offset: number) {
@@ -27,27 +29,27 @@ export default function Home() {
     setMesActivo(nuevoMes);
   }
 
-  const gastosMes = filtrarPorMes(gastos, mesActivo);
+  const movimientosMes = filtrarPorMes(movimientos, mesActivo);
 
-  const fondo = calcularFondoAcumulado(gastos, mesActivo);
+  const gastoMes = totalGastos(movimientosMes);
+  const ingresoMes = totalIngresos(movimientosMes);
+  const saldoFondo = calcularSaldoHastaMes(movimientos, mesActivo);
 
-  const totalMes = gastosMes.reduce((acc, g) => acc + Number(g.importe), 0);
-  const disponible = fondo.fondoDisponible;
-  const porcentaje = Math.min((totalMes / FONDO_MENSUAL) * 100, 100);
+  const porcentaje = Math.min((gastoMes / FONDO_MENSUAL) * 100, 100);
 
-  const marc = gastosMes
-    .filter((g) => g.pagado_por === "Marc")
-    .reduce((acc, g) => acc + Number(g.importe), 0);
+  const marc = movimientosMes
+    .filter((m) => m.persona === "Marc")
+    .reduce((acc, m) => acc + Number(m.importe), 0);
 
-  const alba = gastosMes
-    .filter((g) => g.pagado_por === "Alba")
-    .reduce((acc, g) => acc + Number(g.importe), 0);
+  const alba = movimientosMes
+    .filter((m) => m.persona === "Alba")
+    .reduce((acc, m) => acc + Number(m.importe), 0);
 
-  const conjunta = gastosMes
-    .filter((g) => g.pagado_por === "Conjunta")
-    .reduce((acc, g) => acc + Number(g.importe), 0);
+  const conjunta = movimientosMes
+    .filter((m) => m.persona === "Conjunta")
+    .reduce((acc, m) => acc + Number(m.importe), 0);
 
-  const ultimos = gastosMes.slice(0, 5);
+  const ultimos = movimientosMes.slice(0, 5);
 
   return (
     <AppShell>
@@ -62,18 +64,18 @@ export default function Home() {
       ) : (
         <>
           <section className="mb-6 rounded-[44px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#052e1f] shadow-2xl shadow-emerald-500/30">
-            <p className="text-sm font-black opacity-70">Fondo del piso</p>
+            <p className="text-sm font-black opacity-70">Saldo del fondo</p>
 
             <h2 className="mt-2 text-6xl font-black tracking-tight">
-              {disponible >= 0
-                ? euro(disponible)
-                : `-${euro(Math.abs(disponible))}`}
+              {saldoFondo >= 0
+                ? euro(saldoFondo)
+                : `-${euro(Math.abs(saldoFondo))}`}
             </h2>
 
             <div className="mt-7">
               <div className="mb-3 flex justify-between text-sm font-black">
                 <span>Gastado este mes</span>
-                <span>{euro(totalMes)}</span>
+                <span>{euro(gastoMes)}</span>
               </div>
 
               <div className="h-4 overflow-hidden rounded-full bg-[#052e1f]/20">
@@ -86,60 +88,66 @@ export default function Home() {
 
             <div className="mt-6 grid grid-cols-2 gap-3">
               <div className="rounded-[24px] bg-white/35 p-4">
-                <p className="text-xs font-black opacity-70">Aportación mensual</p>
-                <p className="mt-1 text-xl font-black">{euro(FONDO_MENSUAL)}</p>
+                <p className="text-xs font-black opacity-70">
+                  Ingresado este mes
+                </p>
+                <p className="mt-1 text-xl font-black">{euro(ingresoMes)}</p>
               </div>
 
               <div className="rounded-[24px] bg-white/35 p-4">
-                <p className="text-xs font-black opacity-70">Ahorro del mes</p>
-                <p
-                  className={`mt-1 text-xl font-black ${
-                    fondo.ahorroMes >= 0 ? "" : "text-red-900"
-                  }`}
-                >
-                  {fondo.ahorroMes >= 0
-                    ? euro(fondo.ahorroMes)
-                    : `-${euro(Math.abs(fondo.ahorroMes))}`}
+                <p className="text-xs font-black opacity-70">Balance del mes</p>
+                <p className="mt-1 text-xl font-black">
+                  {euro(ingresoMes - gastoMes)}
                 </p>
               </div>
             </div>
           </section>
 
           <Card className="mb-5 border-emerald-400/20 bg-emerald-400/10">
-            <p className="text-sm font-black text-emerald-300">💚 Estado del fondo</p>
+            <p className="text-sm font-black text-emerald-300">
+              💚 Estado del fondo
+            </p>
 
             <h3 className="mt-2 text-2xl font-black">
-              {disponible >= 300
+              {saldoFondo >= 300
                 ? "El fondo va muy bien."
-                : disponible >= 0
+                : saldoFondo >= 0
                 ? "El fondo empieza a estar justo."
                 : "Habéis superado el fondo."}
             </h3>
 
             <p className="mt-2 text-sm leading-relaxed text-slate-300">
-              Este mes habéis gastado {euro(totalMes)} de los {euro(FONDO_MENSUAL)}{" "}
-              aportados. El saldo acumulado del fondo es de{" "}
-              {disponible >= 0
-                ? euro(disponible)
-                : `-${euro(Math.abs(disponible))}`}.
+              Este mes habéis ingresado {euro(ingresoMes)} y gastado{" "}
+              {euro(gastoMes)}. El saldo acumulado del fondo es{" "}
+              {saldoFondo >= 0
+                ? euro(saldoFondo)
+                : `-${euro(Math.abs(saldoFondo))}`}
+              .
             </p>
           </Card>
 
           <Card className="mb-6">
             <p className="mb-4 text-sm font-black text-slate-400">
-              Reparto por cuenta
+              Movimientos por persona
             </p>
 
-            <AccountRow label="Marc" value={marc} total={totalMes} />
-            <AccountRow label="Alba" value={alba} total={totalMes} />
-            <AccountRow label="Conjunta" value={conjunta} total={totalMes} />
+            <AccountRow label="Marc" value={marc} total={gastoMes + ingresoMes} />
+            <AccountRow label="Alba" value={alba} total={gastoMes + ingresoMes} />
+            <AccountRow
+              label="Conjunta"
+              value={conjunta}
+              total={gastoMes + ingresoMes}
+            />
           </Card>
 
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-xl font-black">Últimos movimientos</h3>
 
-              <Link href="/gastos" className="text-sm font-black text-emerald-300">
+              <Link
+                href="/movimientos"
+                className="text-sm font-black text-emerald-300"
+              >
                 Ver todo
               </Link>
             </div>
@@ -147,29 +155,38 @@ export default function Home() {
             <div className="space-y-3">
               {ultimos.length === 0 && (
                 <p className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 text-slate-400">
-                  Todavía no hay gastos este mes.
+                  Todavía no hay movimientos este mes.
                 </p>
               )}
 
-              {ultimos.map((gasto) => (
+              {ultimos.map((movimiento) => (
                 <div
-                  key={gasto.id}
+                  key={movimiento.id}
                   className="flex items-center justify-between gap-3 rounded-[30px] border border-white/10 bg-white/[0.07] p-4 shadow-xl shadow-black/10"
                 >
                   <div className="flex items-center gap-3">
                     <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-400/15 text-xl">
-                      {iconoCategoria(gasto.categoria)}
+                      {iconoCategoria(movimiento.categoria)}
                     </div>
 
                     <div>
-                      <p className="font-black">{gasto.descripcion}</p>
+                      <p className="font-black">{movimiento.descripcion}</p>
                       <p className="text-sm text-slate-400">
-                        {gasto.categoria} · {gasto.pagado_por}
+                        {movimiento.categoria} · {movimiento.persona}
                       </p>
                     </div>
                   </div>
 
-                  <strong>{euro(Number(gasto.importe))}</strong>
+                  <strong
+                    className={
+                      movimiento.tipo === "ingreso"
+                        ? "text-emerald-300"
+                        : "text-white"
+                    }
+                  >
+                    {movimiento.tipo === "ingreso" ? "+" : "-"}
+                    {euro(Number(movimiento.importe))}
+                  </strong>
                 </div>
               ))}
             </div>

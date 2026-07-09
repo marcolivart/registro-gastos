@@ -5,13 +5,19 @@ import { Movimiento } from "@/types/expense";
 
 type Props = {
   open: boolean;
-  gasto?: Movimiento | null;
+  movimiento?: Movimiento | null;
   onClose: () => void;
   onSave: (movimiento: Omit<Movimiento, "id">) => Promise<void>;
   onDelete?: () => Promise<void>;
 };
 
-export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) {
+export function MovementModal({
+  open,
+  movimiento,
+  onClose,
+  onSave,
+  onDelete,
+}: Props) {
   const [form, setForm] = useState({
     tipo: "gasto" as "ingreso" | "gasto",
     importe: "",
@@ -22,14 +28,14 @@ export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) 
   });
 
   useEffect(() => {
-    if (gasto) {
+    if (movimiento) {
       setForm({
-        tipo: gasto.tipo,
-        importe: String(gasto.importe).replace(".", ","),
-        categoria: gasto.categoria,
-        persona: gasto.persona,
-        descripcion: gasto.descripcion,
-        fecha: gasto.fecha,
+        tipo: movimiento.tipo,
+        importe: String(movimiento.importe).replace(".", ","),
+        categoria: movimiento.categoria,
+        persona: movimiento.persona,
+        descripcion: movimiento.descripcion,
+        fecha: movimiento.fecha,
       });
     } else {
       setForm({
@@ -41,7 +47,7 @@ export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) 
         fecha: new Date().toISOString().slice(0, 10),
       });
     }
-  }, [gasto, open]);
+  }, [movimiento, open]);
 
   if (!open) return null;
 
@@ -67,14 +73,14 @@ export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-[430px] max-h-[85vh] overflow-y-auto rounded-[36px] bg-[#101923] p-5 pb-28 shadow-2xl">
+      <div className="max-h-[85vh] w-full max-w-[430px] overflow-y-auto rounded-[36px] bg-[#101923] p-5 pb-28 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-emerald-300">
-              {gasto ? "Modificar movimiento" : "Nuevo movimiento"}
+              {movimiento ? "Modificar movimiento" : "Nuevo movimiento"}
             </p>
             <h2 className="text-2xl font-black">
-              {gasto ? "Editar movimiento" : "Añadir movimiento"}
+              {movimiento ? "Editar movimiento" : "Añadir movimiento"}
             </h2>
           </div>
 
@@ -106,8 +112,7 @@ export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) 
               setForm({
                 ...form,
                 tipo: "ingreso",
-                categoria:
-                  form.tipo === "gasto" ? "Aportación" : form.categoria,
+                categoria: form.tipo === "gasto" ? "Aportación" : form.categoria,
               })
             }
             className={`h-12 rounded-2xl font-black ${
@@ -187,10 +192,10 @@ export function ExpenseModal({ open, gasto, onClose, onSave, onDelete }: Props) 
           onClick={guardar}
           className="mt-3 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c]"
         >
-          {gasto ? "Guardar cambios" : "Guardar movimiento"}
+          {movimiento ? "Guardar cambios" : "Guardar movimiento"}
         </button>
 
-        {gasto && onDelete && (
+        {movimiento && onDelete && (
           <button
             onClick={onDelete}
             className="mt-3 h-14 w-full rounded-2xl bg-red-500 font-black text-white"

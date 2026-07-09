@@ -2,25 +2,37 @@
 
 import { Header } from "@/components/layout/Header";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
-import { useExpenses } from "@/hooks/useExpenses";
-import { euro, filtrarPorMes, iconoCategoria } from "@/lib/helpers";
+import { useMovimientos } from "@/hooks/useMovimientos";
+import {
+  euro,
+  filtrarPorMes,
+  iconoCategoria,
+  totalGastos,
+  totalIngresos,
+} from "@/lib/helpers";
 
 export default function EstadisticasPage() {
-  const { gastos, loading } = useExpenses();
-  const gastosMes = filtrarPorMes(gastos, new Date());
+  const { movimientos, loading } = useMovimientos();
 
-  const total = gastosMes.reduce((acc, g) => acc + Number(g.importe), 0);
+  const movimientosMes = filtrarPorMes(movimientos, new Date());
 
-  const porCuenta = ["Marc", "Alba", "Conjunta"].map((nombre) => ({
+  const gastosMes = movimientosMes.filter((m) => m.tipo === "gasto");
+  const ingresosMes = movimientosMes.filter((m) => m.tipo === "ingreso");
+
+  const totalGastado = totalGastos(movimientosMes);
+  const totalIngresado = totalIngresos(movimientosMes);
+  const balance = totalIngresado - totalGastado;
+
+  const porPersona = ["Marc", "Alba", "Conjunta"].map((nombre) => ({
     nombre,
-    total: gastosMes
-      .filter((g) => g.pagado_por === nombre)
-      .reduce((acc, g) => acc + Number(g.importe), 0),
+    total: movimientosMes
+      .filter((m) => m.persona === nombre)
+      .reduce((acc, m) => acc + Number(m.importe), 0),
   }));
 
   const categorias = Object.entries(
-    gastosMes.reduce<Record<string, number>>((acc, g) => {
-      acc[g.categoria] = (acc[g.categoria] || 0) + Number(g.importe);
+    gastosMes.reduce<Record<string, number>>((acc, m) => {
+      acc[m.categoria] = (acc[m.categoria] || 0) + Number(m.importe);
       return acc;
     }, {})
   )
@@ -36,27 +48,41 @@ export default function EstadisticasPage() {
 
         <section className="mb-8 rounded-[32px] border border-white/10 bg-white/[0.06] p-5">
           <p className="mb-4 text-sm font-black text-slate-400">
-            Pagado por cuenta
+            Resumen del mes
           </p>
 
           <div className="space-y-3">
-            {porCuenta.map((item) => (
+            <StatLine label="Ingresos" value={totalIngresado} positive />
+            <StatLine label="Gastos" value={totalGastado} />
+            <StatLine label="Balance" value={balance} positive={balance >= 0} />
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-[32px] border border-white/10 bg-white/[0.06] p-5">
+          <p className="mb-4 text-sm font-black text-slate-400">
+            Movimientos por persona
+          </p>
+
+          <div className="space-y-3">
+            {porPersona.map((item) => (
               <StatRow
                 key={item.nombre}
                 nombre={item.nombre}
                 valor={item.total}
-                total={total}
+                total={totalIngresado + totalGastado}
               />
             ))}
           </div>
         </section>
 
         <section className="rounded-[32px] border border-white/10 bg-white/[0.06] p-5">
-          <p className="mb-4 text-sm font-black text-slate-400">Categorías</p>
+          <p className="mb-4 text-sm font-black text-slate-400">
+            Gastos por categoría
+          </p>
 
           {categorias.length === 0 && !loading && (
             <p className="text-sm text-slate-400">
-              Todavía no hay datos este mes.
+              Todavía no hay gastos este mes.
             </p>
           )}
 
@@ -66,7 +92,7 @@ export default function EstadisticasPage() {
                 key={item.categoria}
                 nombre={`${iconoCategoria(item.categoria)} ${item.categoria}`}
                 valor={item.total}
-                total={total}
+                total={totalGastado}
               />
             ))}
           </div>
@@ -75,6 +101,25 @@ export default function EstadisticasPage() {
         <BottomNavigation />
       </div>
     </main>
+  );
+}
+
+function StatLine({
+  label,
+  value,
+  positive = false,
+}: {
+  label: string;
+  value: number;
+  positive?: boolean;
+}) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-slate-400">{label}</span>
+      <strong className={positive ? "text-emerald-300" : "text-white"}>
+        {value >= 0 ? euro(value) : `-${euro(Math.abs(value))}`}
+      </strong>
+    </div>
   );
 }
 
