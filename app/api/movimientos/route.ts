@@ -12,7 +12,10 @@ export async function POST(request: NextRequest) {
     const auth = request.headers.get("x-shortcut-secret");
 
     if (!shortcutSecret || auth !== shortcutSecret) {
-      return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: "No autorizado" },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();
@@ -28,11 +31,17 @@ export async function POST(request: NextRequest) {
     const fecha = body.fecha || new Date().toISOString().slice(0, 10);
 
     if (!tipo) {
-      return NextResponse.json({ ok: false, error: "Tipo inválido", recibido: body.tipo }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Tipo inválido", recibido: body.tipo },
+        { status: 400 }
+      );
     }
 
     if (!importe || importe <= 0) {
-      return NextResponse.json({ ok: false, error: "Importe inválido", recibido: body.importe }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Importe inválido", recibido: body.importe },
+        { status: 400 }
+      );
     }
 
     const movimiento = {
@@ -51,17 +60,26 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       ok: true,
-      mensaje: "Movimiento guardado",
+      recibido: body,
+      tipoNormalizado: tipo,
+      categoriaNormalizada: categoria,
+      personaNormalizada: persona,
       movimiento: data,
     });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ ok: false, error: "Error interno" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "Error interno" },
+      { status: 500 }
+    );
   }
 }
 
@@ -112,7 +130,10 @@ function normalizarPersona(valor: unknown) {
   return "Conjunta";
 }
 
-function descripcionPorDefecto(tipo: "ingreso" | "gasto" | null, categoria: string) {
+function descripcionPorDefecto(
+  tipo: "ingreso" | "gasto" | null,
+  categoria: string
+) {
   if (tipo === "ingreso") return "Ingreso";
   return categoria || "Gasto";
 }
