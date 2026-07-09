@@ -10,18 +10,27 @@ import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useMovimientos } from "@/hooks/useMovimientos";
 import {
+  APORTACION_POR_PERSONA,
   FONDO_MENSUAL,
   calcularSaldoHastaMes,
   euro,
   filtrarPorMes,
   iconoCategoria,
+  mesKey,
   totalGastos,
   totalIngresos,
 } from "@/lib/helpers";
+import { Movimiento } from "@/types/expense";
 
 export default function Home() {
-  const { movimientos, loading } = useMovimientos();
+  const {
+    movimientos,
+    loading,
+    crearMovimiento,
+  } = useMovimientos();
+
   const [mesActivo, setMesActivo] = useState(new Date());
+  const [generando, setGenerando] = useState(false);
 
   function cambiarMes(offset: number) {
     const nuevoMes = new Date(mesActivo);
@@ -36,6 +45,74 @@ export default function Home() {
   const saldoFondo = calcularSaldoHastaMes(movimientos, mesActivo);
 
   const porcentaje = Math.min((gastoMes / FONDO_MENSUAL) * 100, 100);
+
+  const mesActivoKey = mesKey(mesActivo);
+  const fechaAportacion = new Date(
+    mesActivo.getFullYear(),
+    mesActivo.getMonth(),
+    1
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  const aportacionMarcExiste = movimientos.some(
+    (m) =>
+      mesKey(new Date(m.fecha)) === mesActivoKey &&
+      m.tipo === "ingreso" &&
+      m.categoria === "Aportación" &&
+      m.persona === "Marc"
+  );
+
+  const aportacionAlbaExiste = movimientos.some(
+    (m) =>
+      mesKey(new Date(m.fecha)) === mesActivoKey &&
+      m.tipo === "ingreso" &&
+      m.categoria === "Aportación" &&
+      m.persona === "Alba"
+  );
+
+  const faltanAportaciones = !aportacionMarcExiste || !aportacionAlbaExiste;
+
+  async function generarAportaciones() {
+    try {
+      setGenerando(true);
+
+      const nuevasAportaciones: Omit<Movimiento, "id">[] = [];
+
+      if (!aportacionMarcExiste) {
+        nuevasAportaciones.push({
+          fecha: fechaAportacion,
+          tipo: "ingreso",
+          importe: APORTACION_POR_PERSONA,
+          categoria: "Aportación",
+          descripcion: "Aportación mensual Marc",
+          persona: "Marc",
+        });
+      }
+
+      if (!aportacionAlbaExiste) {
+        nuevasAportaciones.push({
+          fecha: fechaAportacion,
+          tipo: "ingreso",
+          importe: APORTACION_POR_PERSONA,
+          categoria: "Aportación",
+          descripcion: "Aportación mensual Alba",
+          persona: "Alba",
+        });
+      }
+
+      for (const movimiento of nuevasAportaciones) {
+        await crearMovimiento(movimiento);
+      }
+
+      alert("Aportaciones generadas correctamente.");
+    } catch (error) {
+      console.error(error);
+      alert("Error generando aportaciones.");
+    } finally {
+      setGenerando(false);
+    }
+  }
 
   const marc = movimientosMes
     .filter((m) => m.persona === "Marc")
@@ -63,6 +140,53 @@ export default function Home() {
         </Card>
       ) : (
         <>
+          {faltanAportaciones && (
+            <Card className="mb-5 border-emerald-400/30 bg-emerald-400/10">
+              <p className="text-sm font-black text-emerald-300">
+                💚 Nuevo mes
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">
+                Faltan aportaciones
+              </h2>
+
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                Todavía no están registradas todas las aportaciones de este mes.
+                Puedes generarlas automáticamente.
+              </p>
+
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between rounded-2xl bg-white/10 p-3">
+                  <span>Marc</span>
+                  <strong>
+                    {aportacionMarcExiste
+                      ? "✅ Creada"
+                      : euro(APORTACION_POR_PERSONA)}
+                  </strong>
+                </div>
+
+                <div className="flex justify-between rounded-2xl bg-white/10 p-3">
+                  <span>Alba</span>
+                  <strong>
+                    {aportacionAlbaExiste
+                      ? "✅ Creada"
+                      : euro(APORTACION_POR_PERSONA)}
+                  </strong>
+                </div>
+              </div>
+
+              <button
+                onClick={generarAportaciones}
+                disabled={generando}
+                className="mt-5 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c] active:scale-[0.98] disabled:opacity-60"
+              >
+                {generando
+                  ? "Generando..."
+                  : "Generar aportaciones del mes"}
+              </button>
+            </Card>
+          )}
+
           <section className="mb-6 rounded-[44px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#052e1f] shadow-2xl shadow-emerald-500/30">
             <p className="text-sm font-black opacity-70">Saldo del fondo</p>
 
@@ -97,7 +221,9 @@ export default function Home() {
               <div className="rounded-[24px] bg-white/35 p-4">
                 <p className="text-xs font-black opacity-70">Balance del mes</p>
                 <p className="mt-1 text-xl font-black">
-                  {euro(ingresoMes - gastoMes)}
+                  {ingresoMes - gastoMes >= 0
+                    ? euro(ingresoMes - gastoMes)
+                    : `-${euro(Math.abs(ingresoMes - gastoMes))}`}
                 </p>
               </div>
             </div>
@@ -131,8 +257,16 @@ export default function Home() {
               Movimientos por persona
             </p>
 
-            <AccountRow label="Marc" value={marc} total={gastoMes + ingresoMes} />
-            <AccountRow label="Alba" value={alba} total={gastoMes + ingresoMes} />
+            <AccountRow
+              label="Marc"
+              value={marc}
+              total={gastoMes + ingresoMes}
+            />
+            <AccountRow
+              label="Alba"
+              value={alba}
+              total={gastoMes + ingresoMes}
+            />
             <AccountRow
               label="Conjunta"
               value={conjunta}
