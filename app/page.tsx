@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Plus, Wallet, ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { MonthSelector } from "@/components/shared/MonthSelector";
@@ -23,12 +24,7 @@ import {
 import { Movimiento } from "@/types/expense";
 
 export default function Home() {
-  const {
-    movimientos,
-    loading,
-    crearMovimiento,
-  } = useMovimientos();
-
+  const { movimientos, loading, crearMovimiento } = useMovimientos();
   const [mesActivo, setMesActivo] = useState(new Date());
   const [generando, setGenerando] = useState(false);
 
@@ -39,11 +35,10 @@ export default function Home() {
   }
 
   const movimientosMes = filtrarPorMes(movimientos, mesActivo);
-
   const gastoMes = totalGastos(movimientosMes);
   const ingresoMes = totalIngresos(movimientosMes);
   const saldoFondo = calcularSaldoHastaMes(movimientos, mesActivo);
-
+  const balanceMes = ingresoMes - gastoMes;
   const porcentaje = Math.min((gastoMes / FONDO_MENSUAL) * 100, 100);
 
   const mesActivoKey = mesKey(mesActivo);
@@ -104,8 +99,6 @@ export default function Home() {
       for (const movimiento of nuevasAportaciones) {
         await crearMovimiento(movimiento);
       }
-
-      alert("Aportaciones generadas correctamente.");
     } catch (error) {
       console.error(error);
       alert("Error generando aportaciones.");
@@ -140,63 +133,23 @@ export default function Home() {
         </Card>
       ) : (
         <>
-          {faltanAportaciones && (
-            <Card className="mb-5 border-emerald-400/30 bg-emerald-400/10">
-              <p className="text-sm font-black text-emerald-300">
-                💚 Nuevo mes
-              </p>
-
-              <h2 className="mt-2 text-2xl font-black">
-                Faltan aportaciones
-              </h2>
-
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                Todavía no están registradas todas las aportaciones de este mes.
-                Puedes generarlas automáticamente.
-              </p>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between rounded-2xl bg-white/10 p-3">
-                  <span>Marc</span>
-                  <strong>
-                    {aportacionMarcExiste
-                      ? "✅ Creada"
-                      : euro(APORTACION_POR_PERSONA)}
-                  </strong>
-                </div>
-
-                <div className="flex justify-between rounded-2xl bg-white/10 p-3">
-                  <span>Alba</span>
-                  <strong>
-                    {aportacionAlbaExiste
-                      ? "✅ Creada"
-                      : euro(APORTACION_POR_PERSONA)}
-                  </strong>
-                </div>
+          <section className="mb-5 overflow-hidden rounded-[46px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#052e1f] shadow-2xl shadow-emerald-500/30">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-black opacity-70">Saldo del fondo</p>
+                <h2 className="mt-2 text-6xl font-black tracking-tight">
+                  {saldoFondo >= 0
+                    ? euro(saldoFondo)
+                    : `-${euro(Math.abs(saldoFondo))}`}
+                </h2>
               </div>
 
-              <button
-                onClick={generarAportaciones}
-                disabled={generando}
-                className="mt-5 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c] active:scale-[0.98] disabled:opacity-60"
-              >
-                {generando
-                  ? "Generando..."
-                  : "Generar aportaciones del mes"}
-              </button>
-            </Card>
-          )}
+              <div className="grid h-14 w-14 place-items-center rounded-[24px] bg-[#052e1f]/10">
+                <Wallet size={30} strokeWidth={3} />
+              </div>
+            </div>
 
-          <section className="mb-6 rounded-[44px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#052e1f] shadow-2xl shadow-emerald-500/30">
-            <p className="text-sm font-black opacity-70">Saldo del fondo</p>
-
-            <h2 className="mt-2 text-6xl font-black tracking-tight">
-              {saldoFondo >= 0
-                ? euro(saldoFondo)
-                : `-${euro(Math.abs(saldoFondo))}`}
-            </h2>
-
-            <div className="mt-7">
+            <div className="mt-7 rounded-[30px] bg-white/35 p-4 backdrop-blur">
               <div className="mb-3 flex justify-between text-sm font-black">
                 <span>Gastado este mes</span>
                 <span>{euro(gastoMes)}</span>
@@ -208,47 +161,72 @@ export default function Home() {
                   style={{ width: `${porcentaje}%` }}
                 />
               </div>
-            </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-[24px] bg-white/35 p-4">
-                <p className="text-xs font-black opacity-70">
-                  Ingresado este mes
-                </p>
-                <p className="mt-1 text-xl font-black">{euro(ingresoMes)}</p>
-              </div>
-
-              <div className="rounded-[24px] bg-white/35 p-4">
-                <p className="text-xs font-black opacity-70">Balance del mes</p>
-                <p className="mt-1 text-xl font-black">
-                  {ingresoMes - gastoMes >= 0
-                    ? euro(ingresoMes - gastoMes)
-                    : `-${euro(Math.abs(ingresoMes - gastoMes))}`}
-                </p>
-              </div>
+              <p className="mt-3 text-xs font-black opacity-70">
+                {porcentaje.toFixed(0)}% de la aportación mensual usado
+              </p>
             </div>
           </section>
 
-          <Card className="mb-5 border-emerald-400/20 bg-emerald-400/10">
-            <p className="text-sm font-black text-emerald-300">
-              💚 Estado del fondo
-            </p>
+          {faltanAportaciones && (
+            <Card className="mb-5 border-emerald-400/30 bg-emerald-400/10">
+              <div className="flex gap-4">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-400 text-[#06110c]">
+                  <Sparkles size={24} strokeWidth={3} />
+                </div>
 
-            <h3 className="mt-2 text-2xl font-black">
-              {saldoFondo >= 300
-                ? "El fondo va muy bien."
-                : saldoFondo >= 0
-                ? "El fondo empieza a estar justo."
-                : "Habéis superado el fondo."}
+                <div className="flex-1">
+                  <p className="text-sm font-black text-emerald-300">
+                    Nuevo mes
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">
+                    Faltan aportaciones
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                    Genera las aportaciones de Marc y Alba para este mes.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={generarAportaciones}
+                disabled={generando}
+                className="mt-5 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c] active:scale-[0.98] disabled:opacity-60"
+              >
+                {generando ? "Generando..." : "Generar aportaciones"}
+              </button>
+            </Card>
+          )}
+
+          <section className="mb-5 grid grid-cols-2 gap-3">
+            <MiniMetric
+              icon={<ArrowUpRight size={20} />}
+              label="Ingresos"
+              value={ingresoMes}
+              positive
+            />
+            <MiniMetric
+              icon={<ArrowDownRight size={20} />}
+              label="Gastos"
+              value={gastoMes}
+            />
+          </section>
+
+          <Card className="mb-5">
+            <p className="text-sm font-black text-slate-400">Balance del mes</p>
+            <h3
+              className={`mt-2 text-3xl font-black ${
+                balanceMes >= 0 ? "text-emerald-300" : "text-red-300"
+              }`}
+            >
+              {balanceMes >= 0
+                ? `+${euro(balanceMes)}`
+                : `-${euro(Math.abs(balanceMes))}`}
             </h3>
-
             <p className="mt-2 text-sm leading-relaxed text-slate-300">
-              Este mes habéis ingresado {euro(ingresoMes)} y gastado{" "}
-              {euro(gastoMes)}. El saldo acumulado del fondo es{" "}
-              {saldoFondo >= 0
-                ? euro(saldoFondo)
-                : `-${euro(Math.abs(saldoFondo))}`}
-              .
+              {balanceMes >= 0
+                ? "Este mes estáis sumando dinero al fondo común."
+                : "Este mes estáis gastando más de lo ingresado."}
             </p>
           </Card>
 
@@ -257,22 +235,20 @@ export default function Home() {
               Movimientos por persona
             </p>
 
-            <AccountRow
-              label="Marc"
-              value={marc}
-              total={gastoMes + ingresoMes}
-            />
-            <AccountRow
-              label="Alba"
-              value={alba}
-              total={gastoMes + ingresoMes}
-            />
+            <AccountRow label="Marc" value={marc} total={gastoMes + ingresoMes} />
+            <AccountRow label="Alba" value={alba} total={gastoMes + ingresoMes} />
             <AccountRow
               label="Conjunta"
               value={conjunta}
               total={gastoMes + ingresoMes}
             />
           </Card>
+
+          <section className="mb-6 grid grid-cols-3 gap-3">
+            <QuickAction href="/movimientos" icon="＋" label="Movimiento" />
+            <QuickAction href="/ajustes" icon="💚" label="Aportar" />
+            <QuickAction href="/estadisticas" icon="📊" label="Stats" />
+          </section>
 
           <section>
             <div className="mb-4 flex items-center justify-between">
@@ -328,8 +304,63 @@ export default function Home() {
         </>
       )}
 
+      <Link
+        href="/movimientos"
+        className="fixed bottom-24 right-[calc(50%-200px)] z-40 grid h-16 w-16 place-items-center rounded-[26px] bg-emerald-400 text-[#06110c] shadow-2xl shadow-emerald-500/40 active:scale-90"
+      >
+        <Plus size={32} strokeWidth={4} />
+      </Link>
+
       <BottomNavigation />
     </AppShell>
+  );
+}
+
+function MiniMetric({
+  icon,
+  label,
+  value,
+  positive = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  positive?: boolean;
+}) {
+  return (
+    <div className="rounded-[30px] border border-white/10 bg-white/[0.07] p-4 shadow-xl shadow-black/10">
+      <div
+        className={`mb-3 grid h-10 w-10 place-items-center rounded-2xl ${
+          positive
+            ? "bg-emerald-400/15 text-emerald-300"
+            : "bg-red-400/15 text-red-300"
+        }`}
+      >
+        {icon}
+      </div>
+      <p className="text-xs font-bold text-slate-400">{label}</p>
+      <p className="mt-1 text-lg font-black">{euro(value)}</p>
+    </div>
+  );
+}
+
+function QuickAction({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-[26px] border border-white/10 bg-white/[0.07] p-4 text-center shadow-xl shadow-black/10 active:scale-[0.98]"
+    >
+      <p className="text-2xl">{icon}</p>
+      <p className="mt-2 text-xs font-black text-slate-300">{label}</p>
+    </Link>
   );
 }
 
