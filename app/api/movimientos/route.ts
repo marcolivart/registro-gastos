@@ -20,22 +20,15 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const tipo = normalizarTipo(body.tipo);
-    const importe = Number(String(body.importe).replace(",", "."));
     const categoria = normalizarCategoria(body.categoria);
+    const tipo = categoria === "Ingreso" ? "ingreso" : "gasto";
+    const importe = Number(String(body.importe).replace(",", "."));
     const persona = normalizarPersona(body.persona);
     const descripcion =
       String(body.descripcion || "").trim() ||
       descripcionPorDefecto(tipo, categoria);
 
     const fecha = body.fecha || new Date().toISOString().slice(0, 10);
-
-    if (!tipo) {
-      return NextResponse.json(
-        { ok: false, error: "Tipo inválido", recibido: body.tipo },
-        { status: 400 }
-      );
-    }
 
     if (!importe || importe <= 0) {
       return NextResponse.json(
@@ -68,14 +61,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      recibido: body,
-      tipoNormalizado: tipo,
-      categoriaNormalizada: categoria,
-      personaNormalizada: persona,
+      mensaje: "Movimiento guardado",
       movimiento: data,
     });
   } catch (error) {
     console.error(error);
+
     return NextResponse.json(
       { ok: false, error: "Error interno" },
       { status: 500 }
@@ -88,15 +79,6 @@ function limpiarValor(valor: unknown) {
     .replace(/[^\p{L}\p{N}\s]/gu, "")
     .trim()
     .toLowerCase();
-}
-
-function normalizarTipo(valor: unknown): "ingreso" | "gasto" | null {
-  const limpio = limpiarValor(valor);
-
-  if (limpio.includes("ingreso")) return "ingreso";
-  if (limpio.includes("gasto")) return "gasto";
-
-  return null;
 }
 
 function normalizarCategoria(valor: unknown) {
@@ -113,8 +95,13 @@ function normalizarCategoria(valor: unknown) {
     limpieza: "Limpieza",
     hogar: "Hogar",
     otros: "Otros",
-    aportacion: "Aportación",
-    aportación: "Aportación",
+    ingreso: "Ingreso",
+    aportacion: "Ingreso",
+    aportación: "Ingreso",
+    nomina: "Ingreso",
+    nómina: "Ingreso",
+    devolucion: "Ingreso",
+    devolución: "Ingreso",
   };
 
   return categorias[limpio] || "Otros";
@@ -130,10 +117,7 @@ function normalizarPersona(valor: unknown) {
   return "Conjunta";
 }
 
-function descripcionPorDefecto(
-  tipo: "ingreso" | "gasto" | null,
-  categoria: string
-) {
+function descripcionPorDefecto(tipo: "ingreso" | "gasto", categoria: string) {
   if (tipo === "ingreso") return "Ingreso";
   return categoria || "Gasto";
 }
