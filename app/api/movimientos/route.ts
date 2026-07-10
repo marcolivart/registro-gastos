@@ -12,36 +12,61 @@ export async function POST(request: NextRequest) {
     const auth = request.headers.get("x-shortcut-secret");
 
     if (!shortcutSecret || auth !== shortcutSecret) {
-      return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: "No autorizado" },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();
 
-    const categoriaRaw =
-      body.categoria ??
-      body["categoria "] ??
-      body.category ??
-      body["category "] ??
-      "";
-
-    const categoria = normalizarCategoria(categoriaRaw);
-    const tipo = categoria === "Ingreso" ? "ingreso" : "gasto";
-
-    const importe = Number(String(body.importe ?? body.amount ?? "").replace(",", "."));
-
-    const persona = normalizarPersona(
-      body.persona ?? body["persona "] ?? body.person ?? ""
+    const importe = normalizarImporte(
+      obtenerCampo(body, ["importe", "amount"])
     );
 
+    const categoria = normalizarCategoria(
+      obtenerCampo(body, ["categoria", "category"])
+    );
+
+    const persona = normalizarPersona(
+      obtenerCampo(body, ["persona", "person"])
+    );
+
+    const tipo: "ingreso" | "gasto" =
+      categoria === "Ingreso" ? "ingreso" : "gasto";
+
+    const descripcionRecibida = obtenerCampo(body, [
+      "descripcion",
+      "description",
+    ]);
+
     const descripcion =
-      String(body.descripcion ?? body["descripcion "] ?? body.description ?? "")
-        .trim() || descripcionPorDefecto(tipo, categoria);
+      String(descripcionRecibida ?? "").trim() ||
+      descripcionPorDefecto(tipo, categoria);
 
-    const fecha = body.fecha || new Date().toISOString().slice(0, 10);
+    const fechaRecibida = obtenerCampo(body, ["fecha", "date"]);
+    const fecha =
+      String(fechaRecibida ?? "").trim() ||
+      new Date().toISOString().slice(0, 10);
 
-    if (!importe || importe <= 0) {
+    if (!Number.isFinite(importe) || importe <= 0) {
       return NextResponse.json(
-        { ok: false, error: "Importe inválido", recibido: body },
+        {
+          ok: false,
+          error: "Importe inválido",
+          recibido: body,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!categoria) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Categoría no recibida",
+          recibido: body,
+        },
         { status: 400 }
       );
     }
@@ -51,8 +76,8 @@ export async function POST(request: NextRequest) {
       tipo,
       importe,
       categoria,
-      descripcion,
       persona,
+      descripcion,
     };
 
     const { data, error } = await supabase
@@ -62,35 +87,78 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       ok: true,
-      mensaje: "Movimiento guardado",
+      mensaje:
+        tipo === "ingreso"
+          ? `Ingreso guardado: ${importe} €`
+          : `${categoria} guardado: ${importe} €`,
       movimiento: data,
     });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ ok: false, error: "Error interno" }, { status: 500 });
+    console.error("Error creando movimiento:", error);
+
+    return NextResponse.json(
+      { ok: false, error: "Error interno creando el movimiento" },
+      { status: 500 }
+    );
   }
 }
 
-function limpiarValor(valor: unknown) {
-  return String(valor || "")
+/**
+ * Encuentra una propiedad aunque Atajos haya añadido
+ * espacios antes o después de la clave.
+ */
+function obtenerCampo(
+  body: Record<string, unknown>,
+  nombres: string[]
+): unknown {
+  const claves = Object.keys(body);
+
+  for (const nombre of nombres) {
+    const encontrada = claves.find(
+      (clave) => clave.trim().toLowerCase() === nombre.toLowerCase()
+    );
+
+    if (encontrada) {
+      return body[encontrada];
+    }
+  }
+
+  return undefined;
+}
+
+function normalizarImporte(valor: unknown): number {
+  const limpio = String(valor ?? "")
+    .replace(/\s/g, "")
+    .replace("€", "")
+    .replace(",", ".");
+
+  return Number(limpio);
+}
+
+function limpiarValor(valor: unknown): string {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
 
-function normalizarCategoria(valor: unknown) {
+function normalizarCategoria(valor: unknown): string | null {
   const limpio = limpiarValor(valor);
 
-  if (limpio.includes("ingreso")) return "Ingreso";
-  if (limpio.includes("aportacion") || limpio.includes("aportación")) return "Ingreso";
-  if (limpio.includes("nomina") || limpio.includes("nómina")) return "Ingreso";
-  if (limpio.includes("devolucion") || limpio.includes("devolución")) return "Ingreso";
+  if (!limpio) return null;
 
+  if (limpio.includes("ingreso")) return "Ingreso";
   if (limpio.includes("compra")) return "Compra";
   if (limpio.includes("luz")) return "Luz";
   if (limpio.includes("agua")) return "Agua";
@@ -105,17 +173,18 @@ function normalizarCategoria(valor: unknown) {
   return "Otros";
 }
 
-function normalizarPersona(valor: unknown) {
+function normalizarPersona(valor: unknown): "Conjunta" | "Marc" | "Alba" {
   const limpio = limpiarValor(valor);
 
   if (limpio.includes("marc")) return "Marc";
   if (limpio.includes("alba")) return "Alba";
-  if (limpio.includes("conjunta")) return "Conjunta";
 
   return "Conjunta";
 }
 
-function descripcionPorDefecto(tipo: "ingreso" | "gasto", categoria: string) {
-  if (tipo === "ingreso") return "Ingreso";
-  return categoria || "Gasto";
+function descripcionPorDefecto(
+  tipo: "ingreso" | "gasto",
+  categoria: string
+): string {
+  return tipo === "ingreso" ? "Ingreso" : categoria;
 }
