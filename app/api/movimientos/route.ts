@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, unknown>;
 
     const importe = normalizarImporte(
       obtenerCampo(body, ["importe", "amount"])
@@ -31,23 +31,6 @@ export async function POST(request: NextRequest) {
     const persona = normalizarPersona(
       obtenerCampo(body, ["persona", "person"])
     );
-
-    const tipo: "ingreso" | "gasto" =
-      categoria === "Ingreso" ? "ingreso" : "gasto";
-
-    const descripcionRecibida = obtenerCampo(body, [
-      "descripcion",
-      "description",
-    ]);
-
-    const descripcion =
-      String(descripcionRecibida ?? "").trim() ||
-      descripcionPorDefecto(tipo, categoria);
-
-    const fechaRecibida = obtenerCampo(body, ["fecha", "date"]);
-    const fecha =
-      String(fechaRecibida ?? "").trim() ||
-      new Date().toISOString().slice(0, 10);
 
     if (!Number.isFinite(importe) || importe <= 0) {
       return NextResponse.json(
@@ -70,6 +53,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const tipo: "ingreso" | "gasto" =
+      categoria === "Ingreso" ? "ingreso" : "gasto";
+
+    const descripcionRecibida = obtenerCampo(body, [
+      "descripcion",
+      "description",
+    ]);
+
+    const descripcion =
+      String(descripcionRecibida ?? "").trim() ||
+      descripcionPorDefecto(tipo, categoria);
+
+    const fechaRecibida = obtenerCampo(body, ["fecha", "date"]);
+
+    const fecha =
+      String(fechaRecibida ?? "").trim() ||
+      new Date().toISOString().slice(0, 10);
 
     const movimiento = {
       fecha,
@@ -111,10 +112,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Encuentra una propiedad aunque Atajos haya añadido
- * espacios antes o después de la clave.
- */
 function obtenerCampo(
   body: Record<string, unknown>,
   nombres: string[]
@@ -173,7 +170,9 @@ function normalizarCategoria(valor: unknown): string | null {
   return "Otros";
 }
 
-function normalizarPersona(valor: unknown): "Conjunta" | "Marc" | "Alba" {
+function normalizarPersona(
+  valor: unknown
+): "Conjunta" | "Marc" | "Alba" {
   const limpio = limpiarValor(valor);
 
   if (limpio.includes("marc")) return "Marc";
