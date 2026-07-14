@@ -32,9 +32,8 @@ export async function POST(request: NextRequest) {
     );
 
     const descripcion =
-      String(
-        obtenerCampo(body, ["descripcion", "description"]) ?? ""
-      ).trim() || descripcionPorDefecto(tipo, categoria);
+      String(obtenerCampo(body, ["descripcion", "description"]) ?? "").trim() ||
+      descripcionPorDefecto(tipo, categoria);
 
     const fecha =
       String(obtenerCampo(body, ["fecha", "date"]) ?? "").trim() ||
@@ -121,9 +120,7 @@ function obtenerCampo(
       (clave) => clave.trim().toLowerCase() === nombre.toLowerCase()
     );
 
-    if (encontrada) {
-      return body[encontrada];
-    }
+    if (encontrada) return body[encontrada];
   }
 
   return undefined;
@@ -148,9 +145,7 @@ function limpiarValor(valor: unknown): string {
     .toLowerCase();
 }
 
-function normalizarTipo(
-  valor: unknown
-): "ingreso" | "gasto" | null {
+function normalizarTipo(valor: unknown): "ingreso" | "gasto" | null {
   const limpio = limpiarValor(valor);
 
   if (limpio.includes("ingreso")) return "ingreso";
@@ -163,7 +158,6 @@ function normalizarCategoria(valor: unknown): string | null {
   const limpio = limpiarValor(valor);
 
   if (!limpio) return null;
-
   if (limpio.includes("compra")) return "Compra";
   if (limpio.includes("luz")) return "Luz";
   if (limpio.includes("agua")) return "Agua";
@@ -182,9 +176,7 @@ function normalizarCategoria(valor: unknown): string | null {
   return "Otros";
 }
 
-function normalizarPersona(
-  valor: unknown
-): "Conjunta" | "Marc" | "Alba" {
+function normalizarPersona(valor: unknown): "Conjunta" | "Marc" | "Alba" {
   const limpio = limpiarValor(valor);
 
   if (limpio.includes("marc")) return "Marc";

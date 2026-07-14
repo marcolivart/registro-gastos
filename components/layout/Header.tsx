@@ -2,13 +2,20 @@ import { Home } from "lucide-react";
 
 export function Header() {
   return (
-    <header className="mb-7 text-center">
-      <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-[26px] bg-emerald-400 text-[#052e1f] shadow-2xl shadow-emerald-500/30">
-        <Home size={31} strokeWidth={3} />
+    <header className="mb-6 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="grid h-12 w-12 place-items-center rounded-[20px] bg-emerald-400 text-[#052e1f] shadow-xl shadow-emerald-500/25">
+          <Home size={24} strokeWidth={3} />
+        </div>
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">
+            Marc & Alba
+          </p>
+          <h1 className="mt-0.5 text-2xl font-black tracking-tight">Nuestro Piso</h1>
+        </div>
       </div>
 
-      <p className="text-sm font-bold text-emerald-300">Marc & Alba</p>
-      <h1 className="mt-1 text-4xl font-black tracking-tight">Nuestro Piso</h1>
+      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,.9)]" />
     </header>
   );
 }

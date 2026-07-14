@@ -2,24 +2,40 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, Wallet, ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CircleDollarSign,
+  Plus,
+  ReceiptText,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { MonthSelector } from "@/components/shared/MonthSelector";
+import { DeltaBadge } from "@/components/ui/DeltaBadge";
 import { AppShell } from "@/components/ui/AppShell";
 import { Card } from "@/components/ui/Card";
+import { MetricCard } from "@/components/ui/MetricCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useMovimientos } from "@/hooks/useMovimientos";
 import {
   APORTACION_POR_PERSONA,
   FONDO_MENSUAL,
   calcularSaldoHastaMes,
+  compararCategorias,
+  compararValores,
+  desplazarMes,
   euro,
-  filtrarPorMes,
+  formatFechaCorta,
+  gastosPorCategoria,
   iconoCategoria,
   mesKey,
-  totalGastos,
-  totalIngresos,
+  resumenMes,
+  totalPorPersona,
 } from "@/lib/helpers";
 import { Movimiento } from "@/types/expense";
 
@@ -29,54 +45,66 @@ export default function Home() {
   const [generando, setGenerando] = useState(false);
 
   function cambiarMes(offset: number) {
-    const nuevoMes = new Date(mesActivo);
-    nuevoMes.setMonth(nuevoMes.getMonth() + offset);
-    setMesActivo(nuevoMes);
+    setMesActivo((actual) => desplazarMes(actual, offset));
   }
 
-  const movimientosMes = filtrarPorMes(movimientos, mesActivo);
-  const gastoMes = totalGastos(movimientosMes);
-  const ingresoMes = totalIngresos(movimientosMes);
+  const resumenActual = resumenMes(movimientos, mesActivo);
+  const resumenAnterior = resumenMes(movimientos, desplazarMes(mesActivo, -1));
+  const comparacionGasto = compararValores(
+    resumenActual.gastos,
+    resumenAnterior.gastos
+  );
   const saldoFondo = calcularSaldoHastaMes(movimientos, mesActivo);
-  const balanceMes = ingresoMes - gastoMes;
-  const porcentaje = Math.min((gastoMes / FONDO_MENSUAL) * 100, 100);
+  const porcentajeUsado = Math.min(
+    (resumenActual.gastos / Math.max(resumenActual.ingresos || FONDO_MENSUAL, 1)) *
+      100,
+    100
+  );
+  const disponibleMes = resumenActual.ingresos - resumenActual.gastos;
+  const categorias = gastosPorCategoria(resumenActual.movimientos);
+  const categoriaPrincipal = categorias[0];
+  const comparativasCategoria = compararCategorias(movimientos, mesActivo);
+  const mayorSubida = [...comparativasCategoria]
+    .filter((item) => item.diferencia > 0)
+    .sort((a, b) => b.diferencia - a.diferencia)[0];
+  const mayorBajada = [...comparativasCategoria]
+    .filter((item) => item.diferencia < 0)
+    .sort((a, b) => a.diferencia - b.diferencia)[0];
+  const gastosPersona = totalPorPersona(resumenActual.movimientos, "gasto");
+  const totalGastosPersona = gastosPersona.reduce((acc, item) => acc + item.total, 0);
+  const ultimos = resumenActual.movimientos.slice(0, 5);
 
-  const mesActivoKey = mesKey(mesActivo);
-  const fechaAportacion = new Date(
-    mesActivo.getFullYear(),
-    mesActivo.getMonth(),
-    1
-  )
-    .toISOString()
-    .slice(0, 10);
-
+  const keyMes = mesKey(mesActivo);
   const aportacionMarcExiste = movimientos.some(
     (m) =>
-      mesKey(new Date(m.fecha)) === mesActivoKey &&
+      mesKey(new Date(`${m.fecha}T12:00:00`)) === keyMes &&
       m.tipo === "ingreso" &&
       m.categoria === "Aportación" &&
       m.persona === "Marc"
   );
-
   const aportacionAlbaExiste = movimientos.some(
     (m) =>
-      mesKey(new Date(m.fecha)) === mesActivoKey &&
+      mesKey(new Date(`${m.fecha}T12:00:00`)) === keyMes &&
       m.tipo === "ingreso" &&
       m.categoria === "Aportación" &&
       m.persona === "Alba"
   );
-
   const faltanAportaciones = !aportacionMarcExiste || !aportacionAlbaExiste;
 
   async function generarAportaciones() {
-    try {
-      setGenerando(true);
+    if (!faltanAportaciones || generando) return;
 
-      const nuevasAportaciones: Omit<Movimiento, "id">[] = [];
+    setGenerando(true);
+    const fecha = `${mesActivo.getFullYear()}-${String(
+      mesActivo.getMonth() + 1
+    ).padStart(2, "0")}-01`;
+
+    try {
+      const pendientes: Omit<Movimiento, "id">[] = [];
 
       if (!aportacionMarcExiste) {
-        nuevasAportaciones.push({
-          fecha: fechaAportacion,
+        pendientes.push({
+          fecha,
           tipo: "ingreso",
           importe: APORTACION_POR_PERSONA,
           categoria: "Aportación",
@@ -86,8 +114,8 @@ export default function Home() {
       }
 
       if (!aportacionAlbaExiste) {
-        nuevasAportaciones.push({
-          fecha: fechaAportacion,
+        pendientes.push({
+          fecha,
           tipo: "ingreso",
           importe: APORTACION_POR_PERSONA,
           categoria: "Aportación",
@@ -96,94 +124,37 @@ export default function Home() {
         });
       }
 
-      for (const movimiento of nuevasAportaciones) {
+      for (const movimiento of pendientes) {
         await crearMovimiento(movimiento);
       }
     } catch (error) {
       console.error(error);
-      alert("Error generando aportaciones.");
+      alert("No se han podido generar las aportaciones.");
     } finally {
       setGenerando(false);
     }
   }
 
-  const marc = movimientosMes
-    .filter((m) => m.persona === "Marc")
-    .reduce((acc, m) => acc + Number(m.importe), 0);
-
-  const alba = movimientosMes
-    .filter((m) => m.persona === "Alba")
-    .reduce((acc, m) => acc + Number(m.importe), 0);
-
-  const conjunta = movimientosMes
-    .filter((m) => m.persona === "Conjunta")
-    .reduce((acc, m) => acc + Number(m.importe), 0);
-
-  const ultimos = movimientosMes.slice(0, 5);
-
   return (
     <AppShell>
       <Header />
-
       <MonthSelector mesActivo={mesActivo} onChange={cambiarMes} />
 
       {loading ? (
-        <Card>
-          <p className="text-slate-400">Cargando datos...</p>
-        </Card>
+        <DashboardSkeleton />
       ) : (
         <>
-          <section className="mb-5 overflow-hidden rounded-[46px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#052e1f] shadow-2xl shadow-emerald-500/30">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-black opacity-70">Saldo del fondo</p>
-                <h2 className="mt-2 text-6xl font-black tracking-tight">
-                  {saldoFondo >= 0
-                    ? euro(saldoFondo)
-                    : `-${euro(Math.abs(saldoFondo))}`}
-                </h2>
-              </div>
-
-              <div className="grid h-14 w-14 place-items-center rounded-[24px] bg-[#052e1f]/10">
-                <Wallet size={30} strokeWidth={3} />
-              </div>
-            </div>
-
-            <div className="mt-7 rounded-[30px] bg-white/35 p-4 backdrop-blur">
-              <div className="mb-3 flex justify-between text-sm font-black">
-                <span>Gastado este mes</span>
-                <span>{euro(gastoMes)}</span>
-              </div>
-
-              <div className="h-4 overflow-hidden rounded-full bg-[#052e1f]/20">
-                <div
-                  className="h-full rounded-full bg-[#052e1f] transition-all duration-700"
-                  style={{ width: `${porcentaje}%` }}
-                />
-              </div>
-
-              <p className="mt-3 text-xs font-black opacity-70">
-                {porcentaje.toFixed(0)}% de la aportación mensual usado
-              </p>
-            </div>
-          </section>
-
           {faltanAportaciones && (
             <Card className="mb-5 border-emerald-400/30 bg-emerald-400/10">
-              <div className="flex gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-400 text-[#06110c]">
+              <div className="flex items-start gap-4">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-400 text-[#052e1f]">
                   <Sparkles size={24} strokeWidth={3} />
                 </div>
-
-                <div className="flex-1">
-                  <p className="text-sm font-black text-emerald-300">
-                    Nuevo mes
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black">
-                    Faltan aportaciones
-                  </h2>
+                <div>
+                  <p className="text-sm font-black text-emerald-300">Nuevo mes</p>
+                  <h2 className="mt-1 text-xl font-black">Faltan aportaciones</h2>
                   <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                    Genera las aportaciones de Marc y Alba para este mes.
+                    Registra las aportaciones pendientes de Marc y Alba sin duplicarlas.
                   </p>
                 </div>
               </div>
@@ -191,73 +162,151 @@ export default function Home() {
               <button
                 onClick={generarAportaciones}
                 disabled={generando}
-                className="mt-5 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#06110c] active:scale-[0.98] disabled:opacity-60"
+                className="mt-5 h-14 w-full rounded-2xl bg-emerald-400 font-black text-[#052e1f] active:scale-[0.98] disabled:opacity-60"
               >
                 {generando ? "Generando..." : "Generar aportaciones"}
               </button>
             </Card>
           )}
 
+          <section className="mb-5 overflow-hidden rounded-[44px] bg-gradient-to-br from-emerald-300 via-emerald-400 to-lime-300 p-6 text-[#052e1f] shadow-2xl shadow-emerald-500/25">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-black opacity-65">Saldo acumulado</p>
+                <h2 className="mt-2 break-words text-5xl font-black tracking-tight">
+                  {euro(saldoFondo)}
+                </h2>
+              </div>
+              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[23px] bg-[#052e1f]/10">
+                <Wallet size={29} strokeWidth={3} />
+              </div>
+            </div>
+
+            <div className="mt-7 rounded-[29px] bg-white/35 p-4 backdrop-blur">
+              <div className="mb-3 flex items-center justify-between text-sm font-black">
+                <span>Gastado este mes</span>
+                <span>{euro(resumenActual.gastos)}</span>
+              </div>
+              <div className="h-4 overflow-hidden rounded-full bg-[#052e1f]/15">
+                <div
+                  className="h-full rounded-full bg-[#052e1f] transition-all duration-700"
+                  style={{ width: `${porcentajeUsado}%` }}
+                />
+              </div>
+              <div className="mt-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black opacity-60">Balance mensual</p>
+                  <p className="mt-1 text-2xl font-black">{euro(disponibleMes)}</p>
+                </div>
+                <span className="rounded-full bg-[#052e1f]/10 px-3 py-1.5 text-xs font-black">
+                  {porcentajeUsado.toFixed(0)}% usado
+                </span>
+              </div>
+            </div>
+          </section>
+
           <section className="mb-5 grid grid-cols-2 gap-3">
-            <MiniMetric
-              icon={<ArrowUpRight size={20} />}
+            <MetricCard
+              icon={<ArrowUpRight size={20} className="text-emerald-300" />}
               label="Ingresos"
-              value={ingresoMes}
-              positive
+              value={euro(resumenActual.ingresos)}
+              detail={<span className="text-xs text-slate-500">Este mes</span>}
             />
-            <MiniMetric
-              icon={<ArrowDownRight size={20} />}
+            <MetricCard
+              icon={<ArrowDownRight size={20} className="text-rose-300" />}
               label="Gastos"
-              value={gastoMes}
+              value={euro(resumenActual.gastos)}
+              detail={
+                <DeltaBadge
+                  diferencia={comparacionGasto.diferencia}
+                  porcentaje={comparacionGasto.porcentaje}
+                  invertido
+                />
+              }
             />
           </section>
 
-          <Card className="mb-5">
-            <p className="text-sm font-black text-slate-400">Balance del mes</p>
-            <h3
-              className={`mt-2 text-3xl font-black ${
-                balanceMes >= 0 ? "text-emerald-300" : "text-red-300"
-              }`}
-            >
-              {balanceMes >= 0
-                ? `+${euro(balanceMes)}`
-                : `-${euro(Math.abs(balanceMes))}`}
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-300">
-              {balanceMes >= 0
-                ? "Este mes estáis sumando dinero al fondo común."
-                : "Este mes estáis gastando más de lo ingresado."}
-            </p>
+          <Card className="mb-5 border-emerald-400/15 bg-gradient-to-br from-emerald-400/10 to-transparent">
+            <div className="flex items-start gap-4">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/15 text-emerald-300">
+                {comparacionGasto.diferencia <= 0 ? (
+                  <TrendingDown size={22} />
+                ) : (
+                  <TrendingUp size={22} />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-black text-emerald-300">Resumen inteligente</p>
+                <h3 className="mt-1 text-xl font-black">
+                  {comparacionGasto.diferencia < 0
+                    ? `Habéis gastado ${euro(Math.abs(comparacionGasto.diferencia))} menos.`
+                    : comparacionGasto.diferencia > 0
+                      ? `Habéis gastado ${euro(comparacionGasto.diferencia)} más.`
+                      : "El gasto se mantiene igual."}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                  {mayorBajada
+                    ? `${iconoCategoria(mayorBajada.categoria)} ${mayorBajada.categoria} es la mayor bajada: ${euro(Math.abs(mayorBajada.diferencia))} menos que el mes anterior.`
+                    : mayorSubida
+                      ? `${iconoCategoria(mayorSubida.categoria)} ${mayorSubida.categoria} es la mayor subida: ${euro(mayorSubida.diferencia)} más.`
+                      : "Añade movimientos de varios meses para obtener comparativas más precisas."}
+                </p>
+              </div>
+            </div>
           </Card>
 
-          <Card className="mb-6">
-            <p className="mb-4 text-sm font-black text-slate-400">
-              Movimientos por persona
-            </p>
-
-            <AccountRow label="Marc" value={marc} total={gastoMes + ingresoMes} />
-            <AccountRow label="Alba" value={alba} total={gastoMes + ingresoMes} />
-            <AccountRow
-              label="Conjunta"
-              value={conjunta}
-              total={gastoMes + ingresoMes}
+          <section className="mb-5 grid grid-cols-2 gap-3">
+            <MetricCard
+              icon={<CircleDollarSign size={20} className="text-emerald-300" />}
+              label="Mayor categoría"
+              value={categoriaPrincipal ? categoriaPrincipal.categoria : "Sin datos"}
+              detail={
+                categoriaPrincipal ? (
+                  <span className="text-xs font-bold text-slate-400">
+                    {iconoCategoria(categoriaPrincipal.categoria)} {euro(categoriaPrincipal.total)}
+                  </span>
+                ) : undefined
+              }
             />
+            <MetricCard
+              icon={<ReceiptText size={20} className="text-sky-300" />}
+              label="Movimientos"
+              value={String(resumenActual.cantidad)}
+              detail={<span className="text-xs text-slate-500">Registrados este mes</span>}
+            />
+          </section>
+
+          <Card className="mb-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-black text-slate-400">Quién ha pagado los gastos</p>
+                <p className="mt-1 text-xs text-slate-500">Sin mezclar las aportaciones</p>
+              </div>
+              <Link href="/estadisticas" className="text-xs font-black text-emerald-300">
+                Analizar
+              </Link>
+            </div>
+
+            {gastosPersona.map((item) => (
+              <AccountRow
+                key={item.persona}
+                label={item.persona}
+                value={item.total}
+                total={totalGastosPersona}
+              />
+            ))}
           </Card>
 
           <section className="mb-6 grid grid-cols-3 gap-3">
             <QuickAction href="/movimientos" icon="＋" label="Movimiento" />
-            <QuickAction href="/ajustes" icon="💚" label="Aportar" />
-            <QuickAction href="/estadisticas" icon="📊" label="Stats" />
+            <QuickAction href="/estadisticas" icon="📊" label="Estadísticas" />
+            <QuickAction href="/ajustes" icon="💚" label="Aportaciones" />
           </section>
 
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-xl font-black">Últimos movimientos</h3>
-
-              <Link
-                href="/movimientos"
-                className="text-sm font-black text-emerald-300"
-              >
+              <Link href="/movimientos" className="text-sm font-black text-emerald-300">
                 Ver todo
               </Link>
             </div>
@@ -272,26 +321,22 @@ export default function Home() {
               {ultimos.map((movimiento) => (
                 <div
                   key={movimiento.id}
-                  className="flex items-center justify-between gap-3 rounded-[30px] border border-white/10 bg-white/[0.07] p-4 shadow-xl shadow-black/10"
+                  className="flex items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.07] p-4 shadow-xl shadow-black/10"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-400/15 text-xl">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-xl">
                       {iconoCategoria(movimiento.categoria)}
                     </div>
-
-                    <div>
-                      <p className="font-black">{movimiento.descripcion}</p>
-                      <p className="text-sm text-slate-400">
-                        {movimiento.categoria} · {movimiento.persona}
+                    <div className="min-w-0">
+                      <p className="truncate font-black">{movimiento.descripcion}</p>
+                      <p className="truncate text-sm text-slate-400">
+                        {movimiento.categoria} · {movimiento.persona} · {formatFechaCorta(movimiento.fecha)}
                       </p>
                     </div>
                   </div>
-
                   <strong
                     className={
-                      movimiento.tipo === "ingreso"
-                        ? "text-emerald-300"
-                        : "text-white"
+                      movimiento.tipo === "ingreso" ? "text-emerald-300" : "text-white"
                     }
                   >
                     {movimiento.tipo === "ingreso" ? "+" : "-"}
@@ -306,61 +351,14 @@ export default function Home() {
 
       <Link
         href="/movimientos"
-        className="fixed bottom-24 right-[calc(50%-200px)] z-40 grid h-16 w-16 place-items-center rounded-[26px] bg-emerald-400 text-[#06110c] shadow-2xl shadow-emerald-500/40 active:scale-90"
+        aria-label="Añadir movimiento"
+        className="fixed bottom-24 left-1/2 z-40 ml-[145px] grid h-16 w-16 -translate-x-1/2 place-items-center rounded-[25px] bg-emerald-400 text-[#052e1f] shadow-2xl shadow-emerald-500/35 active:scale-90"
       >
-        <Plus size={32} strokeWidth={4} />
+        <Plus size={31} strokeWidth={4} />
       </Link>
 
       <BottomNavigation />
     </AppShell>
-  );
-}
-
-function MiniMetric({
-  icon,
-  label,
-  value,
-  positive = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  positive?: boolean;
-}) {
-  return (
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.07] p-4 shadow-xl shadow-black/10">
-      <div
-        className={`mb-3 grid h-10 w-10 place-items-center rounded-2xl ${
-          positive
-            ? "bg-emerald-400/15 text-emerald-300"
-            : "bg-red-400/15 text-red-300"
-        }`}
-      >
-        {icon}
-      </div>
-      <p className="text-xs font-bold text-slate-400">{label}</p>
-      <p className="mt-1 text-lg font-black">{euro(value)}</p>
-    </div>
-  );
-}
-
-function QuickAction({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-[26px] border border-white/10 bg-white/[0.07] p-4 text-center shadow-xl shadow-black/10 active:scale-[0.98]"
-    >
-      <p className="text-2xl">{icon}</p>
-      <p className="mt-2 text-xs font-black text-slate-300">{label}</p>
-    </Link>
   );
 }
 
@@ -373,7 +371,7 @@ function AccountRow({
   value: number;
   total: number;
 }) {
-  const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+  const percent = total > 0 ? (value / total) * 100 : 0;
 
   return (
     <div className="mb-4 last:mb-0">
@@ -381,8 +379,32 @@ function AccountRow({
         <span className="text-sm font-bold text-slate-300">{label}</span>
         <span className="text-sm font-black">{euro(value)}</span>
       </div>
-
       <ProgressBar value={percent} />
+    </div>
+  );
+}
+
+function QuickAction({ href, icon, label }: { href: string; icon: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-[25px] border border-white/10 bg-white/[0.07] p-4 text-center shadow-xl shadow-black/10 active:scale-[0.98]"
+    >
+      <p className="text-2xl">{icon}</p>
+      <p className="mt-2 text-xs font-black text-slate-300">{label}</p>
+    </Link>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-72 rounded-[44px] bg-white/10" />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="h-36 rounded-[28px] bg-white/10" />
+        <div className="h-36 rounded-[28px] bg-white/10" />
+      </div>
+      <div className="h-44 rounded-[34px] bg-white/10" />
     </div>
   );
 }

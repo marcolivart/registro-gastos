@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Movimiento } from "@/types/expense";
 
@@ -8,23 +8,24 @@ export function useMovimientos() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function cargarMovimientos() {
+  const cargarMovimientos = useCallback(async () => {
     setLoading(true);
 
     const { data, error } = await supabase
       .from("movimientos")
       .select("*")
-      .order("fecha", { ascending: false });
+      .order("fecha", { ascending: false })
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
-      alert("Error cargando movimientos");
+      console.error("Error cargando movimientos:", error);
+      setMovimientos([]);
     } else {
-      setMovimientos(data || []);
+      setMovimientos((data || []) as Movimiento[]);
     }
 
     setLoading(false);
-  }
+  }, []);
 
   async function crearMovimiento(movimiento: Omit<Movimiento, "id">) {
     const { error } = await supabase.from("movimientos").insert(movimiento);
@@ -52,8 +53,12 @@ export function useMovimientos() {
   }
 
   useEffect(() => {
-    cargarMovimientos();
-  }, []);
+    const timeout = window.setTimeout(() => {
+      void cargarMovimientos();
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [cargarMovimientos]);
 
   return {
     movimientos,
