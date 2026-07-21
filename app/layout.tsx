@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { RecurringPaymentsGenerator } from "@/components/shared/RecurringPaymentsGenerator";
 
 export const metadata: Metadata = {
   title: "Nuestro Piso",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <RecurringPaymentsGenerator />
+        {children}
+      </body>
     </html>
   );
 }

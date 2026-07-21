@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Home, ListRestart, Settings } from "lucide-react";
+import { BarChart3, Home, ListRestart, Repeat, Settings } from "lucide-react";
 
 const items = [
   { href: "/", label: "Inicio", Icon: Home },
   { href: "/movimientos", label: "Movimientos", Icon: ListRestart },
+  { href: "/pagos-recurrentes", label: "Recurrentes", Icon: Repeat },
   { href: "/estadisticas", label: "Estadísticas", Icon: BarChart3 },
   { href: "/ajustes", label: "Ajustes", Icon: Settings },
 ];
@@ -16,7 +17,7 @@ export function BottomNavigation() {
 
   return (
     <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 border-t border-white/10 bg-[#071018]/95 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur-2xl">
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-5 gap-1">
         {items.map(({ href, label, Icon }) => {
           const active = pathname === href;
 

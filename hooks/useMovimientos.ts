@@ -60,6 +60,16 @@ export function useMovimientos() {
     return () => window.clearTimeout(timeout);
   }, [cargarMovimientos]);
 
+  useEffect(() => {
+    function handleActualizados() {
+      void cargarMovimientos();
+    }
+
+    window.addEventListener("movimientos:actualizados", handleActualizados);
+    return () =>
+      window.removeEventListener("movimientos:actualizados", handleActualizados);
+  }, [cargarMovimientos]);
+
   return {
     movimientos,
     loading,

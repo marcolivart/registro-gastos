@@ -9,6 +9,9 @@ Aplicación móvil web para gestionar el fondo común de Marc y Alba.
 - Aportaciones mensuales de Marc y Alba sin duplicados.
 - Registro, edición y eliminación de movimientos.
 - Integración con Atajos de iPhone mediante `/api/movimientos`.
+- Pagos recurrentes (Netflix, alquiler, seguros...) que generan movimientos
+  automáticamente al abrir la app, sin duplicados aunque pasen meses sin
+  entrar.
 - Comparación del mes activo con el mes anterior.
 - Comparativas automáticas por categoría.
 - Gráfico circular de gastos por categoría.
@@ -23,6 +26,13 @@ npm run dev
 ```
 
 La aplicación estará disponible en `http://localhost:3000`.
+
+## Pagos recurrentes
+
+Antes de usar la pantalla "Pagos recurrentes", ejecuta una vez el script
+`supabase/pagos_recurrentes.sql` en el SQL Editor de tu proyecto Supabase.
+Crea la tabla `pagos_recurrentes` y enlaza `movimientos` con el pago que lo
+generó (`recurrente_id`), con una restricción única que impide duplicados.
 
 ## Variables de entorno
 

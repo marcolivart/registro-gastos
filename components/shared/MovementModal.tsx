@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Trash2, X } from "lucide-react";
 import { Movimiento } from "@/types/expense";
+import { CATEGORIAS_GASTO, CATEGORIAS_INGRESO } from "@/lib/helpers";
 
 type Props = {
   open: boolean;
@@ -11,27 +12,6 @@ type Props = {
   onSave: (movimiento: Omit<Movimiento, "id">) => Promise<void>;
   onDelete?: () => Promise<void>;
 };
-
-const categoriasGasto = [
-  "Compra",
-  "Alquiler",
-  "Luz",
-  "Agua",
-  "Internet",
-  "Ocio",
-  "Transporte",
-  "Limpieza",
-  "Hogar",
-  "Otros",
-];
-
-const categoriasIngreso = [
-  "Aportación",
-  "Nómina",
-  "Devolución",
-  "Ingreso extra",
-  "Otros",
-];
 
 export function MovementModal(props: Props) {
   if (!props.open) return null;
@@ -108,7 +88,7 @@ function MovementModalContent({
     }));
   }
 
-  const categorias = form.tipo === "ingreso" ? categoriasIngreso : categoriasGasto;
+  const categorias = form.tipo === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4">

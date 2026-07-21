@@ -18,6 +18,14 @@ export const CATEGORIAS_GASTO = [
   "Otros",
 ] as const;
 
+export const CATEGORIAS_INGRESO = [
+  "Aportación",
+  "Nómina",
+  "Devolución",
+  "Ingreso extra",
+  "Otros",
+] as const;
+
 export function euro(value: number) {
   return new Intl.NumberFormat("es-ES", {
     style: "currency",

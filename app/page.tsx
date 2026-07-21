@@ -22,6 +22,8 @@ import { Card } from "@/components/ui/Card";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useMovimientos } from "@/hooks/useMovimientos";
+import { usePagosRecurrentes } from "@/hooks/usePagosRecurrentes";
+import { proximaFecha, formatFechaISO } from "@/lib/recurrencia";
 import {
   APORTACION_POR_PERSONA,
   FONDO_MENSUAL,
@@ -41,8 +43,16 @@ import { Movimiento } from "@/types/expense";
 
 export default function Home() {
   const { movimientos, loading, crearMovimiento } = useMovimientos();
+  const { pagos: pagosRecurrentes } = usePagosRecurrentes();
   const [mesActivo, setMesActivo] = useState(new Date());
   const [generando, setGenerando] = useState(false);
+
+  const proximosPagos = pagosRecurrentes
+    .filter((pago) => pago.activo)
+    .map((pago) => ({ pago, fecha: proximaFecha(pago) }))
+    .filter((item): item is { pago: (typeof pagosRecurrentes)[number]; fecha: Date } => item.fecha !== null)
+    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+    .slice(0, 5);
 
   function cambiarMes(offset: number) {
     setMesActivo((actual) => desplazarMes(actual, offset));
@@ -295,6 +305,52 @@ export default function Home() {
                 total={totalGastosPersona}
               />
             ))}
+          </Card>
+
+          <Card className="mb-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-black text-slate-400">Facturas y suscripciones</p>
+                <h3 className="mt-1 text-xl font-black">Próximos pagos</h3>
+              </div>
+              <Link href="/pagos-recurrentes" className="text-xs font-black text-emerald-300">
+                Ver todo
+              </Link>
+            </div>
+
+            {proximosPagos.length === 0 ? (
+              <p className="text-sm leading-relaxed text-slate-400">
+                No tienes pagos recurrentes activos. Añade Netflix, alquiler o cualquier gasto
+                fijo para dejar de introducirlo a mano.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {proximosPagos.map(({ pago, fecha }) => (
+                  <div
+                    key={pago.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.05] p-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-lg">
+                        {pago.icono || iconoCategoria(pago.categoria)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-black">{pago.nombre}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatFechaCorta(formatFechaISO(fecha))}
+                        </p>
+                      </div>
+                    </div>
+                    <strong
+                      className={pago.tipo === "ingreso" ? "text-emerald-300" : "text-white"}
+                    >
+                      {pago.tipo === "ingreso" ? "+" : "-"}
+                      {euro(Number(pago.importe))}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           <section className="mb-6 grid grid-cols-3 gap-3">
